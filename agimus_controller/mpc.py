@@ -1,57 +1,38 @@
 import time
 import numpy as np
-from .ocp_croco_hpp import OCPCrocoHPP
+from .trajectory_buffer import TrajectoryBuffer
 
 
-class TrajectoryBuffer:
-    def __init__(self, model):
-        self.model = model
-        self.x_plan = []
-        self.a_plan = []
-
-    def add_trajectory_point(self, q, v, a=None):
-        if len(q) != self.model.nq:
-            raise Exception(
-                f"configuration vector size : {len(q)} doesn't match model's nq : {self.model.nq}"
-            )
-        if len(v) != self.model.nv:
-            raise Exception(
-                f"velocity vector size : {len(v)} doesn't match model's nv : {self.model.nv}"
-            )
-        x = np.concatenate([np.array(q), np.array(v)])
-        self.x_plan.append(x)
-        if a is not None:
-            if len(a) != self.model.nv:
-                raise Exception(
-                    f"acceleration vector size : {len(a)} doesn't match model's nv : {self.model.nv}"
-                )
-            self.a_plan.append(np.array(a))
-
-    def get_joint_state_horizon(self):
-        """Return the state reference for the horizon, state is composed of joints positions and velocities"""
-        return self.x_plan
-
-    def get_joint_acceleration_horizon(self):
-        """Return the acceleration reference for the horizon, state is composed of joints positions and velocities"""
-        return self.a_plan
+class MPCSettings:
+    horizon_size = 0
+    robot_name = ""
 
 
 class MPC:
-    def __init__(self, x_plan, a_plan, robot_name):
-        self.prob = OCPCrocoHPP(robot_name)
-        self.whole_x_plan = x_plan
-        self.whole_a_plan = a_plan
-        self.robot = self.prob.robot
-        self.nq = self.robot.nq
+    def __init__(self):
         self.croco_xs = None
         self.croco_us = None
+        self.prob = None
+        self.whole_x_plan = None
+        self.whole_a_plan = None
+        self.robot = None
+        self.nq = None
+        self.desired_horizon = TrajectoryBuffer()
         self.results = {}
         self.results["xs"] = []
         self.results["us"] = []
         self.results["max_us"] = []
         self.results["max_increase_us"] = []
         self.results["combination"] = []
+
+    def initialize(self, ocp, x_plan, a_plan):
+        self.prob = ocp
+        self.whole_x_plan = x_plan
+        self.whole_a_plan = a_plan
+        self.robot = self.prob.robot
+        self.nq = self.robot.nq
         self.whole_traj_T = x_plan.shape[0]
+        self.desired_horizon.initialize()
 
     def get_trajectory_difference(self, configuration_traj=True):
         """Compute at each node the absolute difference in position either in cartesian or configuration space and sum it."""
