@@ -2,7 +2,7 @@ from copy import deepcopy
 from .trajectory_point import TrajectoryPoint
 
 
-class TrajectoryFIFO:
+class TrajectoryBuffer:
     def __init__(self) -> None:
         self._buffer = []
         self.size = 0
