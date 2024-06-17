@@ -10,6 +10,7 @@ class AgimusControllerNodeParameters:
         self.name = rospy.get_param("~name", "robot")
         self.prefix = rospy.get_param("~prefix", "agimus")
         self.rate = rospy.get_param("~rate", 100)
+        self.horizon_size = rospy.get_param("~horizon_size", 100)
 
 
 class AgimusControllerNode:
@@ -19,6 +20,14 @@ class AgimusControllerNode:
 
         rospy.loginfo("Create the rate object.")
         self.rate = rospy.Rate(self.params.rate)  # 10hz
+
+        # Count the number of messages received from the hpp_trajectory
+        self.nb_joint_pos_msg = 0
+        self.nb_joint_vel_msg = 0
+        self.nb_com_pos_msg = 0
+        self.nb_com_vel_msg = 0
+        self.nb_op_frame_pos_msg = {}
+        self.nb_op_frame_vel_msg = {}
 
         rospy.loginfo("Parse the prefix/name params.")
         if not self.params.prefix.endswith("/"):
@@ -67,7 +76,7 @@ class AgimusControllerNode:
             rospy.Subscriber(
                 self.params.prefix + "position",
                 Vector,
-                self.com_velocity_callback,
+                self.joint_position_callback,
             )
         ]
         rospy.loginfo("\t- Robot velocity subscriber.")
@@ -75,7 +84,7 @@ class AgimusControllerNode:
             rospy.Subscriber(
                 self.params.prefix + "velocity",
                 Vector,
-                self.com_velocity_callback,
+                self.joint_velocity_callback,
             )
         ]
 
@@ -85,12 +94,36 @@ class AgimusControllerNode:
             rospy.loginfo(hello_str)
             self.rate.sleep()
 
-    def com_pose_callback(self, msg):
-        rospy.logdebug("CoM pos msg = ", msg)
+    def joint_position_callback(self, msg):
+        rospy.logdebug("Joint pos msg = ", msg)
+
+        self.nb_joint_pos_msg += 1
+
+    def joint_velocity_callback(self, msg):
+        rospy.logdebug("Joint vel msg = ", msg)
+
+        self.nb_joint_vel_msg += 1
+
+    def com_position_callback(self, msg):
+        rospy.logdebug("CoM position msg = ", msg)
+
+        self.nb_com_pos_msg += 1
 
     def com_velocity_callback(self, msg):
         rospy.logdebug("CoM vel msg = ", msg)
 
-    def op_frames_callback(self, op_frame, msg):
-        rospy.logdebug("Op frame = ", msg)
-        rospy.logdebug(op_frame)
+        self.nb_com_vel_msg += 1
+
+    def op_frames_pose_callback(self, op_frame, msg):
+        rospy.logdebug("Op frame [", op_frame, "]= ", msg)
+        if op_frame not in self.nb_op_frame_pos_msg:
+            self.nb_op_frame_pos_msg[op_frame] = 0
+
+        self.nb_op_frame_pos_msg[op_frame] += 1
+
+    def op_frames_vel_callback(self, op_frame, msg):
+        rospy.logdebug("Op frame [", op_frame, "]= ", msg)
+        if op_frame not in self.nb_op_frame_vel_msg:
+            self.nb_op_frame_vel_msg[op_frame] = 0
+
+        self.nb_op_frame_vel_msg[op_frame] += 1

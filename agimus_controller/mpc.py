@@ -1,5 +1,4 @@
 import numpy as np
-from .trajectory_buffer import TrajectoryBuffer
 
 
 class MPCSettings:
@@ -16,16 +15,14 @@ class MPC:
         self.whole_a_plan = None
         self.robot = None
         self.nq = None
-        self.desired_horizon = TrajectoryBuffer()
 
-    def initialize(self, ocp, x_plan, a_plan):
+    def initialize(self, ocp, x_plan=None, a_plan=None):
         self.prob = ocp
         self.whole_x_plan = x_plan
         self.whole_a_plan = a_plan
         self.robot = self.prob.robot
         self.nq = self.robot.nq
         self.whole_traj_T = x_plan.shape[0]
-        self.desired_horizon.initialize()
 
     def get_next_state(self, x, problem):
         """Get state at the next step by doing a crocoddyl integration."""
@@ -52,6 +49,7 @@ class MPC:
         for idx in range(1, self.whole_traj_T - 1):
             x_plan = self.update_planning(x_plan, self.whole_x_plan[next_node_idx, :])
             a_plan = self.update_planning(a_plan, self.whole_a_plan[next_node_idx, :])
+            self.update_horizon()
             x, u = self.mpc_step(x, x_plan, a_plan)
             if next_node_idx < self.whole_x_plan.shape[0] - 1:
                 next_node_idx += 1

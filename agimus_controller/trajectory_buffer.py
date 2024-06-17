@@ -20,8 +20,16 @@ class TrajectoryBuffer:
     def add(self, trajectory_point: TrajectoryPoint):
         assert self.nq == trajectory_point.q.shape[0]
         assert self.nv == trajectory_point.v.shape[0]
-        self.buffer.pop(0)
+        if len(self.buffer) >= self.size:
+            self.buffer.pop(0)
         self.buffer.append(trajectory_point)
+
+    def fill_buffer(self, trajectory_point: TrajectoryPoint):
+        for _ in range(self.size - self.buffer_size()):
+            self.add(trajectory_point)
+
+    def buffer_size(self):
+        return self.size - self.buffer.count(None)
 
     def get_buffer(self):
         return self._buffer.copy()
