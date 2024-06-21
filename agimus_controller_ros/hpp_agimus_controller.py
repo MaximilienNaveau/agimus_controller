@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
+import time
 from copy import deepcopy
 from threading import Lock
 from std_msgs.msg import Duration, Header
@@ -15,9 +16,9 @@ from agimus_controller.ocps.ocp_croco_hpp import OCPCrocoHPP
 
 class HppAgimusController:
     def __init__(self) -> None:
-        self.dt = 1e-2
+        self.dt = 0.05
         self.q_goal = [1.9542, -1.1679, -2.0741, -1.8046, 0.0149, 2.1971, 2.0056]
-        self.horizon_size = 100
+        self.horizon_size = 50
 
         self.pandawrapper = PandaWrapper(auto_col=False)
         self.rmodel, self.cmodel, self.vmodel = self.pandawrapper.create_robot()
@@ -104,16 +105,16 @@ class HppAgimusController:
         new_x_ref = self.mpc.whole_x_plan[self.next_node_idx, :]
         new_a_ref = self.mpc.whole_a_plan[self.next_node_idx, :]
 
-        mpc_duration = rospy.Time.now()
+        mpc_duration = rospy.Time(time.time())
         self.mpc.mpc_step(x0, new_x_ref, new_a_ref)
         if self.next_node_idx < self.mpc.whole_x_plan.shape[0] - 1:
             self.next_node_idx += 1
         _, u, k = self.mpc.get_mpc_output()
-        mpc_duration = rospy.Time.now() - mpc_duration
-        rospy.loginfo_throttle(1, "mpc_duration = %s", str(mpc_duration))
+        mpc_duration = rospy.Time(time.time()) - mpc_duration
+        rospy.loginfo(1, "mpc_duration = %s", str(mpc_duration.to_sec()))
 
         self.control_msg.header = Header()
-        self.control_msg.header.stamp = rospy.Time.now()
+        self.control_msg.header.stamp = rospy.Time(time.time())
         self.control_msg.feedback_gain = to_multiarray_f64(k)
         self.control_msg.feedforward = to_multiarray_f64(u)
         self.control_msg.initial_state = sensor_msg
