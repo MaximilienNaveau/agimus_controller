@@ -1,4 +1,5 @@
 import rospy
+from copy import deepcopy
 from dynamic_graph_bridge_msgs.msg import Vector
 from collections import deque
 from threading import Lock
@@ -25,6 +26,11 @@ class FIFO:
     def pop_front(self):
         with self.mutex:
             ret = self.deque.popleft()
+        return ret
+
+    def get(self):
+        with self.mutex:
+            ret = deepcopy(self.deque[0])
         return ret
 
     def get_size(self):
@@ -56,6 +62,7 @@ class HPPSubscriber:
         self.fifo_op_frame_pose = FIFO()  # op_pos
         self.fifo_op_frame_velocity = FIFO()  # op_vel
 
+        self.last_tp = None
         self.index = 0
 
         rospy.loginfo("Spawn the subscribers.")
@@ -165,20 +172,22 @@ class HPPSubscriber:
         )
 
     def get_trajectory_point(self):
-        while self.min_all_deque() == 0:
+        while self.min_all_deque() == 0 and self.last_tp is None:
             self.wait_subscribers.sleep()
             print("min all deque size : ", self.min_all_deque())
 
-        q = self.fifo_q.pop_front().data
-        v = self.fifo_v.pop_front().data
-        tp = TrajectoryPoint(time=self.index, nq=len(q), nv=len(v))
-        tp.q[:] = q[:]
-        tp.v[:] = v[:]
-        tp.a[:] = self.fifo_a.pop_front().data[:]
-        # tp.com_pos = self.fifo_com_pose.pop_front().data
-        # tp.com_vel = self.fifo_com_velocity.pop_front().data
-        # tp.op_pos = self.fifo_op_frame_pose.pop_front().data
-        # tp.op_vel = self.fifo_op_frame_velocity.pop_front().data
+        if self.min_all_deque() > 1:
+            q = self.fifo_q.pop_front().data
+            v = self.fifo_v.pop_front().data
+            a = self.fifo_a.pop_front().data
+            tp = TrajectoryPoint(time=self.index, nq=len(q), nv=len(v))
+            tp.q[:] = q[:]
+            tp.v[:] = v[:]
+            tp.a[:] = a[:]
+        else:
+            tp = deepcopy(self.last_tp)
+            tp.time = self.index
 
+        self.last_tp = deepcopy(tp)
         self.index += 1
         return tp

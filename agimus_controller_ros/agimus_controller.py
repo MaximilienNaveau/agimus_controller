@@ -89,7 +89,7 @@ class AgimusControllerNode:
     def wait_twice_control_horizon_from_plan(self):
         for _ in range(self.params.horizon_size * 2):
             tp = self.hpp_subscriber.get_trajectory_point()
-            # self.buffer.append
+            self.buffer.add_trajectory_point(tp)
 
     def first_solve(self):
         sensor_msg = self.get_sensor_msg()
@@ -111,6 +111,10 @@ class AgimusControllerNode:
         self.mpc.mpc_first_step(self.x_plan, self.a_plan, x0, self.params.horizon_size)
 
     def solve_and_send(self):
+        # Get new reference:
+        new_tp = self.hpp_subscriber.get_trajectory_point()
+        self.buffer.add_trajectory_point(new_tp)
+
         sensor_msg = self.get_sensor_msg()
         x0 = np.concatenate(
             [sensor_msg.joint_state.position, sensor_msg.joint_state.velocity]
